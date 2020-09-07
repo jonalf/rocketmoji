@@ -1,6 +1,6 @@
-XAUTHTOKEN = "foo"
-XUSERID = "bar"
-
+XAUTHTOKEN = ''
+XUSERID = ''
+TOKEN_FILE = 'token.txt'
 """
 use emoji yaml files like the ones found here:
 https://github.com/lambtron/emojipacks
@@ -24,8 +24,17 @@ curl -H "X-Auth-Token: " \
 
 import yaml
 import os
-from urllib.request import urlopen, urlretrieve
+from urllib.request import urlopen
+from requests import get
 
+#set tokens from file
+def get_tokens(tokenf = TOKEN_FILE):
+    f = open(tokenf)
+    lines = f.read().split('\n')
+    f.close()
+    auth = lines[0].split(',')[1]
+    uid = lines[1].split(',')[1]
+    return (auth, uid)
 
 #retrieve emoji yaml file
 def get_emoji_yaml( emoji_url ):
@@ -48,7 +57,9 @@ def batch_save_emojis( emoji_yaml ):
         # print(url)
         # print(filename)
         filename = tmpdir + '/' + filename
-        urlretrieve(url, filename)
+        f = open(filename, 'wb')
+        response = get(url)
+        f.write(response.content)
         emoji_create_api_call(filename, name)
 
     #get rid of emoji files
@@ -78,8 +89,9 @@ def emoji_create_api_call(emojifile, emojiname):
     print(emojiname)
     print(cmd)
     print()
-    #os.system(cmd)
+    os.system(cmd)
 
-emoji_yaml_url = input("URL for YAML file?")
+(XAUTHTOKEN, XUSERID) = get_tokens()
+emoji_yaml_url = input("URL for YAML file: ")
 emoji_yaml = get_emoji_yaml(emoji_yaml_url)
 batch_save_emojis( emoji_yaml )
