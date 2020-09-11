@@ -24,8 +24,10 @@ curl -H "X-Auth-Token: " \
 
 import yaml
 import os
+import pprint
+import json
 from urllib.request import urlopen
-from requests import get
+from requests import get, post
 
 #set tokens from file
 def get_tokens(tokenf = TOKEN_FILE):
@@ -48,6 +50,7 @@ def batch_save_emojis( emoji_yaml ):
     os.mkdir(tmpdir)
 
     emojis = emoji_yaml['emojis']
+    emoji_files = []
     print(emojis)
     for emoji in emojis:
         name = emoji['name']
@@ -60,7 +63,9 @@ def batch_save_emojis( emoji_yaml ):
         f = open(filename, 'wb')
         response = get(url)
         f.write(response.content)
-        emoji_create_api_call(filename, name)
+        emoji_files.append( (filename, name) )
+    for emoji in emoji_files:
+        emoji_create_api_call(emoji[0], emoji[1])
 
     #get rid of emoji files
     os.system('rm -rf ' + tmpdir)
@@ -78,7 +83,6 @@ r.txt
 
 until that is working, using os.system instead
 '''
-
 def emoji_create_api_call(emojifile, emojiname):
     cmd = 'curl -H "X-Auth-Token: %s" '%XAUTHTOKEN
     cmd+= '-H "X-User-Id: %s" '%XUSERID
@@ -91,7 +95,41 @@ def emoji_create_api_call(emojifile, emojiname):
     print()
     os.system(cmd)
 
+#return dictionary of emojis including rocket generated emoji ids
+def get_emoji_list():
+    headers = {'X-Auth-Token': XAUTHTOKEN,
+               'X-User-Id': XUSERID}
+    r = get('http://localhost:3000/api/v1/emoji-custom.list', headers = headers)
+    return r.json()
+
+def remove_all_emojis( emoji_list ):
+    headers = {'X-Auth-Token': XAUTHTOKEN,
+               'X-User-Id': XUSERID,
+               "Content-type":"application/json"}
+    for emoji in emoji_list:
+        print(emoji)
+        emoji_id = emoji['_id']
+        data = {"emojiId" : emoji_id}
+        r = post('http://localhost:3000/api/v1/emoji-custom.delete', data = json.dumps(data), headers = headers)
+        print(r.text)
+
+
 (XAUTHTOKEN, XUSERID) = get_tokens()
-emoji_yaml_url = input("URL for YAML file: ")
-emoji_yaml = get_emoji_yaml(emoji_yaml_url)
-batch_save_emojis( emoji_yaml )
+if __name__ == '__main__':
+    menu = """
+0: list custom emojis
+1: batch add emojis
+2: batch delete all custom emojis
+choice: """
+    choice = input(menu)
+
+    if choice == '0':
+        get_emoji_list()
+    elif choice == '1':
+        emoji_yaml_url = input("URL for YAML file: ")
+        emoji_yaml = get_emoji_yaml(emoji_yaml_url)
+        batch_save_emojis( emoji_yaml )
+    elif choice == '2':
+        emoji_list = get_emoji_list()
+        emoji_list = emoji_list['emojis']['update']
+        remove_all_emojis(emoji_list)
